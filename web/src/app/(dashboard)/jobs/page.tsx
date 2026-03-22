@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Briefcase, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ const DEFAULT_FILTERS: JobFilters = {
   sortDir: "desc",
 };
 
-export default function JobsPage() {
+function JobsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -141,5 +141,13 @@ export default function JobsPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function JobsPage() {
+  return (
+    <Suspense fallback={<div className="space-y-5 max-w-4xl"><div className="h-8 w-32 bg-muted animate-pulse rounded" /></div>}>
+      <JobsContent />
+    </Suspense>
   );
 }
