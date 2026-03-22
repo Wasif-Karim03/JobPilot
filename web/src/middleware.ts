@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@/server/auth";
 
 // Routes that require authentication
 const PROTECTED_ROUTES = [
@@ -17,10 +16,13 @@ const ADMIN_ROUTES = ["/admin"];
 // Routes that redirect authenticated users away
 const AUTH_ROUTES = ["/login", "/register"];
 
-export async function middleware(request: NextRequest) {
+// Better Auth session cookie name (matches cookiePrefix in auth.ts)
+const SESSION_COOKIE = "jobpilot.session_token";
+
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip API routes (handled by their own auth)
+  // Skip API routes and static files
   if (pathname.startsWith("/api/")) {
     return NextResponse.next();
   }
@@ -29,41 +31,24 @@ export async function middleware(request: NextRequest) {
   const isAdmin = ADMIN_ROUTES.some((route) => pathname.startsWith(route));
   const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
 
+  // Public routes — pass through immediately
   if (!isProtected && !isAdmin && !isAuthRoute) {
     return NextResponse.next();
   }
 
-  // Get session — if auth fails, fail open (let the page/API handle auth)
-  let session: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
-  try {
-    session = await auth.api.getSession({ headers: request.headers });
-  } catch {
-    // DB unavailable or auth misconfigured — allow public routes, block protected
-    if (isProtected || isAdmin) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-    return NextResponse.next();
-  }
+  // Lightweight session check — just verify cookie exists (no DB call)
+  // Full auth validation happens in tRPC procedures
+  const hasSession = !!request.cookies.get(SESSION_COOKIE)?.value;
 
-  // Redirect to login if accessing protected route without session
-  if ((isProtected || isAdmin) && !session?.user) {
+  // Redirect to login if accessing protected route without session cookie
+  if ((isProtected || isAdmin) && !hasSession) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect admin routes for non-admins
-  if (isAdmin && session?.user) {
-    const role = (session.user as { role?: string }).role;
-    if (role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
-  }
-
   // Redirect authenticated users away from auth pages
-  if (isAuthRoute && session?.user) {
+  if (isAuthRoute && hasSession) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
