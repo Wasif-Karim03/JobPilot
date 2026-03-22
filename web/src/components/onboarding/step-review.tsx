@@ -170,8 +170,21 @@ export function StepReview({
               }
             />
           )}
-          {preferences.visaSponsorship && (
-            <ReviewRow label="Visa" value="Sponsorship required" />
+          {preferences.visaStatus && (
+            <ReviewRow
+              label="Visa status"
+              value={
+                preferences.visaStatus === "us_citizen"
+                  ? "US Citizen"
+                  : preferences.visaStatus === "f1_student"
+                  ? "F1 Student"
+                  : preferences.visaStatus === "stem_opt"
+                  ? "STEM OPT / 1 year OPT"
+                  : preferences.visaStatus === "h1b"
+                  ? "H1B"
+                  : preferences.visaStatus
+              }
+            />
           )}
         </ReviewSection>
 
