@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "lib": ["ES2020"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "outDir": "./dist",
+    "paths": {
+      "@jobpilot/shared/*": ["../packages/shared/src/*"]
+    }
+  },
+  "include": ["src/**/*", "../packages/shared/src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

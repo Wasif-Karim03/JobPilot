@@ -1,0 +1,465 @@
+// prisma/schema.prisma
+// Single source of truth for the JobPilot database schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+/// AI search depth — controls cost vs thoroughness
+enum SearchDepth {
+  LIGHT    // ~$1-2/run: Major boards only, title match
+  STANDARD // ~$3-5/run: Boards + web search, description analysis
+  DEEP     // ~$8-15/run: Everything + company research + contacts
+}
+
+/// Lifecycle status for a discovered job
+enum JobStatus {
+  DISCOVERED   // Found by search, not yet reviewed
+  BOOKMARKED   // User marked as interesting
+  APPLYING     // User is preparing application
+  APPLIED      // Application submitted
+  PHONE_SCREEN // Phone screen scheduled/completed
+  INTERVIEW    // Interview stage
+  OFFER        // Received offer
+  REJECTED     // Rejected at any stage
+  WITHDRAWN    // User withdrew
+  ARCHIVED     // User dismissed
+}
+
+enum OutreachType {
+  EMAIL
+  LINKEDIN
+}
+
+enum OutreachStatus {
+  DRAFT
+  SENT
+  REPLIED
+  NO_RESPONSE
+}
+
+/// Relationship type for discovered contacts at a target company
+enum ContactRelationType {
+  ALUMNI
+  CEO
+  CTO
+  VP_ENGINEERING
+  ENGINEERING_MANAGER
+  HR_RECRUITER
+  HIRING_MANAGER
+  EMPLOYEE
+  OTHER
+}
+
+/// Worker job run status
+enum SearchRunStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+/// How the resume was created
+enum ResumeFormat {
+  STRUCTURED // Built from section-by-section form
+  RICH_TEXT  // Built from TipTap editor
+  UPLOADED   // Uploaded PDF/DOCX, parsed
+}
+
+// ============================================================
+// CORE AUTH TABLES (Better Auth compatible)
+// ============================================================
+
+/// Platform users — job seekers and admins
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  emailVerified      Boolean  @default(false) @map("email_verified")
+  name               String?
+  image              String?
+  passwordHash       String?  @map("password_hash")
+  googleId           String?  @unique @map("google_id")
+  avatarUrl          String?  @map("avatar_url")
+  role               UserRole @default(USER)
+  onboardingComplete Boolean  @default(false) @map("onboarding_complete")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  apiConfig       UserApiConfig?
+  preferences     JobPreferences?
+  gmailConnection GmailConnection?
+  resumes         Resume[]
+  jobs            Job[]
+  applications    Application[]
+  searchRuns      SearchRun[]
+  sessions        Session[]
+  accounts        Account[]
+
+  @@map("users")
+}
+
+/// Better Auth session table
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// Better Auth OAuth account table
+model Account {
+  id                   String    @id @default(cuid())
+  userId               String    @map("user_id")
+  accountId            String    @map("account_id")
+  providerId           String    @map("provider_id")
+  password             String?
+  accessToken          String?   @map("access_token")
+  refreshToken         String?   @map("refresh_token")
+  accessTokenExpiresAt DateTime? @map("access_token_expires_at")
+  scope                String?
+  idToken              String?   @map("id_token")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+/// Better Auth verification token table
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("verifications")
+}
+
+// ============================================================
+// USER CONFIGURATION
+// ============================================================
+
+/// Encrypted Claude API key + model/search preferences per user
+model UserApiConfig {
+  id                    String      @id @default(cuid())
+  userId                String      @unique @map("user_id")
+  claudeApiKeyEncrypted String      @map("claude_api_key_encrypted")
+  claudeApiKeyIv        String      @map("claude_api_key_iv")
+  researchModel         String      @default("claude-opus-4-6") @map("research_model")
+  executionModel        String      @default("claude-sonnet-4-6") @map("execution_model")
+  searchDepth           SearchDepth @default(STANDARD) @map("search_depth")
+  dailySearchEnabled    Boolean     @default(true) @map("daily_search_enabled")
+  maxDailyApiCost       Float       @default(10.0) @map("max_daily_api_cost")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_api_configs")
+}
+
+/// Job search preferences — what kind of jobs to look for
+model JobPreferences {
+  id               String   @id @default(cuid())
+  userId           String   @unique @map("user_id")
+  targetTitles     String[] @map("target_titles") // ["Backend Engineer", "Software Engineer"]
+  targetLocations  String[] @map("target_locations") // ["Columbus, OH", "Remote"]
+  remotePreference String   @default("any") @map("remote_preference") // "remote"|"hybrid"|"onsite"|"any"
+  salaryMin        Int?     @map("salary_min")
+  salaryMax        Int?     @map("salary_max")
+  companySizes     String[] @map("company_sizes") // ["startup","small","mid","large","enterprise"]
+  industries       String[] @map("industries") // ["tech","robotics","fintech","healthcare"]
+  excludeCompanies String[] @map("exclude_companies") // Companies to skip
+  experienceLevel  String   @default("entry") @map("experience_level") // "intern"|"entry"|"mid"|"senior"
+  visaSponsorship  Boolean  @default(false) @map("visa_sponsorship")
+  keywords         String[] @map("keywords") // Extra search keywords
+  searchTime       String   @default("08:00") @map("search_time") // HH:MM daily trigger
+  timezone         String   @default("America/New_York")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("job_preferences")
+}
+
+/// Encrypted Gmail OAuth tokens for read-only email scanning
+model GmailConnection {
+  id                    String    @id @default(cuid())
+  userId                String    @unique @map("user_id")
+  gmailEmail            String    @map("gmail_email")
+  accessTokenEncrypted  String    @map("access_token_encrypted")
+  accessTokenIv         String    @map("access_token_iv")
+  refreshTokenEncrypted String    @map("refresh_token_encrypted")
+  refreshTokenIv        String    @map("refresh_token_iv")
+  tokenExpiry           DateTime  @map("token_expiry")
+  lastScanAt            DateTime? @map("last_scan_at")
+  isActive              Boolean   @default(true) @map("is_active")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("gmail_connections")
+}
+
+// ============================================================
+// RESUME MANAGEMENT
+// ============================================================
+
+/// Master and tailored resume versions
+model Resume {
+  id        String       @id @default(cuid())
+  userId    String       @map("user_id")
+  title     String       @default("Master Resume")
+  isMaster  Boolean      @default(false) @map("is_master")
+  format    ResumeFormat @default(STRUCTURED)
+
+  // Structured JSON sections
+  contactInfo    Json?   @map("contact_info") // {name, email, phone, linkedin, github, website, location}
+  summary        String? // Professional summary
+  experience     Json? // [{company, title, location, startDate, endDate, bullets: []}]
+  education      Json? // [{school, degree, field, gpa, startDate, endDate, honors}]
+  skills         Json? // {technical: [], frameworks: [], tools: [], languages: []}
+  projects       Json? // [{name, description, tech, url, bullets: []}]
+  certifications Json? // [{name, issuer, date, url}]
+  customSections Json?   @map("custom_sections") // [{title, items: [{text}]}]
+
+  // TipTap rich-text JSON (alternative to structured)
+  richTextContent Json? @map("rich_text_content")
+
+  // Generated PDF
+  pdfUrl         String?   @map("pdf_url")
+  pdfGeneratedAt DateTime? @map("pdf_generated_at")
+
+  // Original uploaded file
+  rawFileUrl    String? @map("raw_file_url")
+  parsedContent String? @map("parsed_content") @db.Text // Plain-text for AI matching
+
+  version   Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tailoredFor TailoredResume[]
+
+  @@index([userId, isMaster])
+  @@map("resumes")
+}
+
+// ============================================================
+// JOB DISCOVERY & ANALYSIS
+// ============================================================
+
+/// A job discovered by the AI search engine
+model Job {
+  id          String  @id @default(cuid())
+  userId      String  @map("user_id")
+  searchRunId String? @map("search_run_id")
+
+  // Core job data
+  title       String
+  company     String
+  location    String?
+  url         String // Original posting URL
+  source      String // "web_search"|"indeed"|"linkedin"|"company_site"
+  description String? @db.Text
+  salaryRange String? @map("salary_range")
+  postedDate  DateTime? @map("posted_date")
+  discoveredAt DateTime @default(now()) @map("discovered_at")
+
+  // Match analysis (populated by worker)
+  matchScore       Float?    @map("match_score") // 0-100
+  matchAnalysis    Json?     @map("match_analysis") // {titleMatch, skillsMatch, experienceMatch, details}
+  missingKeywords  String[]  @map("missing_keywords")
+  matchSuggestions Json?     @map("match_suggestions")
+
+  // Company intelligence (for 80%+ matches)
+  companyInfo Json? @map("company_info") // {size, industry, description, founded, headquarters}
+
+  // Status
+  status    JobStatus @default(DISCOVERED)
+  isHidden  Boolean   @default(false) @map("is_hidden")
+  userNotes String?   @map("user_notes")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  searchRun       SearchRun?       @relation(fields: [searchRunId], references: [id])
+  contacts        JobContact[]
+  application     Application?
+  tailoredResumes TailoredResume[]
+
+  @@unique([userId, url]) // Prevent duplicate jobs per user
+  @@index([userId, status])
+  @@index([userId, matchScore])
+  @@index([userId, discoveredAt])
+  @@index([company])
+  @@map("jobs")
+}
+
+/// Contact discovered at a target company (executive, recruiter, alumni)
+model JobContact {
+  id               String              @id @default(cuid())
+  jobId            String              @map("job_id")
+  name             String
+  title            String?
+  email            String?
+  emailConfidence  Int?                @map("email_confidence") // Hunter.io 0-100
+  linkedinUrl      String?             @map("linkedin_url")
+  isAlumni         Boolean             @default(false) @map("is_alumni")
+  alumniSchool     String?             @map("alumni_school")
+  relationshipType ContactRelationType @map("relationship_type")
+  outreachPriority Int                 @default(0) @map("outreach_priority") // Higher = contact first
+  profileSummary   String?             @map("profile_summary")
+  createdAt        DateTime            @default(now()) @map("created_at")
+
+  job            Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  outreachDrafts OutreachDraft[]
+
+  @@index([jobId])
+  @@map("job_contacts")
+}
+
+/// AI-generated outreach message draft (email or LinkedIn note)
+model OutreachDraft {
+  id        String         @id @default(cuid())
+  contactId String         @map("contact_id")
+  type      OutreachType
+  subject   String? // Email subject line
+  content   String         @db.Text // Body (LinkedIn ≤200 chars)
+  status    OutreachStatus @default(DRAFT)
+  sentAt    DateTime?      @map("sent_at")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  contact JobContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@map("outreach_drafts")
+}
+
+// ============================================================
+// APPLICATION TRACKING
+// ============================================================
+
+/// An active job application with status history
+model Application {
+  id            String    @id @default(cuid())
+  jobId         String    @unique @map("job_id")
+  userId        String    @map("user_id")
+  status        JobStatus @default(APPLIED)
+  appliedDate   DateTime? @map("applied_date")
+  appliedVia    String?   @map("applied_via") // "company_site"|"linkedin"|"indeed"|"referral"
+  statusHistory Json      @default("[]") @map("status_history") // [{status, date, source, notes}]
+  interviewDates Json?    @map("interview_dates") // [{date, type, notes}]
+  notes         String?   @db.Text
+  resumeUsed    String?   @map("resume_used") // Resume ID used
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("applications")
+}
+
+/// A resume copy tailored to a specific job (linked to base resume)
+model TailoredResume {
+  id           String   @id @default(cuid())
+  jobId        String   @map("job_id")
+  baseResumeId String   @map("base_resume_id")
+  userId       String   @map("user_id")
+  changes      Json? // {addedKeywords, modifiedSections, summary}
+  richTextContent Json? @map("rich_text_content")
+  pdfUrl       String?  @map("pdf_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  job        Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  baseResume Resume @relation(fields: [baseResumeId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, baseResumeId])
+  @@index([jobId])
+  @@map("tailored_resumes")
+}
+
+// ============================================================
+// EMAIL SCANNING
+// ============================================================
+
+/// A Gmail message scanned for job status signals
+model EmailScan {
+  id              String     @id @default(cuid())
+  userId          String     @map("user_id")
+  gmailMessageId  String     @map("gmail_message_id")
+  subject         String?
+  sender          String?
+  bodySnippet     String?    @map("body_snippet") @db.Text
+  detectedCompany String?    @map("detected_company")
+  detectedStatus  JobStatus? @map("detected_status")
+  confidence      Float? // 0.0-1.0
+  linkedJobId     String?    @map("linked_job_id")
+  processed       Boolean    @default(false)
+  scannedAt       DateTime   @default(now()) @map("scanned_at")
+
+  @@unique([userId, gmailMessageId])
+  @@index([userId, scannedAt])
+  @@map("email_scans")
+}
+
+// ============================================================
+// SEARCH RUNS (AUDIT + MONITORING)
+// ============================================================
+
+/// Audit record for each AI job search execution
+model SearchRun {
+  id            String          @id @default(cuid())
+  userId        String          @map("user_id")
+  searchDepth   SearchDepth     @map("search_depth")
+  status        SearchRunStatus @default(QUEUED)
+  jobsFound     Int             @default(0) @map("jobs_found")
+  jobsMatched   Int             @default(0) @map("jobs_matched")
+  apiCalls      Int             @default(0) @map("api_calls")
+  estimatedCost Float           @default(0) @map("estimated_cost")
+  errorLog      String?         @map("error_log") @db.Text
+  startedAt     DateTime?       @map("started_at")
+  completedAt   DateTime?       @map("completed_at")
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs Job[]
+
+  @@index([userId, createdAt])
+  @@map("search_runs")
+}
