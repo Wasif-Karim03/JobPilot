@@ -47,7 +47,7 @@ export interface PreferencesData {
   companySizes: string[];
   industries: string[];
   experienceLevel: "intern" | "entry" | "mid" | "senior";
-  visaSponsorship: boolean;
+  visaStatus: string;
   keywords: string[];
 }
 
@@ -112,7 +112,7 @@ export const useOnboardingStore = create<OnboardingStore>((set) => ({
     companySizes: [],
     industries: [],
     experienceLevel: "entry",
-    visaSponsorship: false,
+    visaStatus: "",
     keywords: [],
   },
 

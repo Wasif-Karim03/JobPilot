@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -117,7 +116,7 @@ export function StepPreferences({ onNext, onBack }: { onNext: () => void; onBack
         )[],
         industries: preferences.industries,
         experienceLevel: preferences.experienceLevel,
-        visaSponsorship: preferences.visaSponsorship,
+        visaSponsorship: preferences.visaStatus !== "" && preferences.visaStatus !== "us_citizen",
         keywords: preferences.keywords,
       });
       onNext();
@@ -363,16 +362,30 @@ export function StepPreferences({ onNext, onBack }: { onNext: () => void; onBack
         </div>
       </div>
 
-      {/* Visa Sponsorship */}
-      <div className="flex items-center gap-3 py-2">
-        <Switch
-          id="visa"
-          checked={preferences.visaSponsorship}
-          onCheckedChange={(v) => setPreferences({ visaSponsorship: v })}
-        />
-        <Label htmlFor="visa" className="cursor-pointer">
-          I need visa sponsorship
-        </Label>
+      {/* Visa Status */}
+      <div className="space-y-2">
+        <Label>What is your visa status?</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { value: "us_citizen", label: "US Citizen" },
+            { value: "f1_student", label: "F1 Student" },
+            { value: "stem_opt", label: "STEM OPT / 1 year OPT" },
+            { value: "h1b", label: "H1B" },
+          ].map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setPreferences({ visaStatus: option.value })}
+              className={`px-4 py-3 rounded-lg text-sm border text-left transition-colors ${
+                preferences.visaStatus === option.value
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background border-border hover:border-primary"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex gap-3">

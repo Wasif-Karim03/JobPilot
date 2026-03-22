@@ -17,7 +17,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -409,19 +408,28 @@ export function StepApiKey({
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Daily spending limit</Label>
-                <span className="text-sm font-medium">${apiKeyData.maxDailyApiCost}/day</span>
+              <Label htmlFor="daily-cost">Daily spending limit</Label>
+              <div className="flex items-center gap-2">
+                <div className="relative w-36">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                  <Input
+                    id="daily-cost"
+                    type="number"
+                    min={1}
+                    max={100}
+                    step={1}
+                    value={apiKeyData.maxDailyApiCost}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      if (!isNaN(val) && val >= 1) {
+                        setApiKeyData({ maxDailyApiCost: val });
+                      }
+                    }}
+                    className="pl-7"
+                  />
+                </div>
+                <span className="text-sm text-muted-foreground">/day</span>
               </div>
-              <Slider
-                min={1}
-                max={50}
-                step={1}
-                value={[apiKeyData.maxDailyApiCost]}
-                onValueChange={(vals) =>
-                  setApiKeyData({ maxDailyApiCost: (vals as number[])[0] })
-                }
-              />
               <p className="text-xs text-muted-foreground">
                 Searches stop automatically if this daily limit is reached. Recommended: $5–15/day.
               </p>
