@@ -131,9 +131,10 @@ export function StepPreferences({ onNext, onBack }: { onNext: () => void; onBack
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold">Job search preferences</h2>
+        <h2 className="text-xl font-semibold">What kind of jobs are you looking for?</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Tell the AI what kind of jobs to look for. Be specific — better inputs = better results.
+          This tells JobPilot exactly what to search for every day. Be as specific as possible —
+          the more you fill in here, the more accurately it finds jobs that fit you.
         </p>
       </div>
 
@@ -141,8 +142,12 @@ export function StepPreferences({ onNext, onBack }: { onNext: () => void; onBack
       <div className="space-y-2">
         <Label>
           Job titles you&apos;re targeting{" "}
-          <span className="text-muted-foreground text-xs">(required)</span>
+          <span className="text-destructive text-xs">*required</span>
         </Label>
+        <p className="text-xs text-muted-foreground">
+          Type a job title and press Enter or click +. Add multiple variations — e.g.
+          &quot;Software Engineer&quot;, &quot;Backend Developer&quot;, &quot;Full Stack Engineer&quot;.
+        </p>
         <div className="flex gap-2">
           <Input
             placeholder="e.g. Software Engineer"

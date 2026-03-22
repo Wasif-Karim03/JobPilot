@@ -158,8 +158,29 @@ export function StepResume({ onNext }: { onNext: () => void }) {
       <div>
         <h2 className="text-xl font-semibold">Add your master resume</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          This is the base resume the AI will use to match jobs and generate tailored versions.
+          This is the foundation JobPilot uses to find matching jobs, score your fit, and generate
+          tailored applications. The more complete it is, the better your matches.
         </p>
+      </div>
+
+      {/* Why this matters */}
+      <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900 p-4">
+        <p className="text-sm font-medium text-amber-800 dark:text-amber-400 mb-2">
+          Tips for best results
+        </p>
+        <ul className="space-y-1">
+          {[
+            "Include all your skills — even ones you use occasionally",
+            "List every job title you've had, even internships",
+            "Add specific technologies, tools, and frameworks you've used",
+            "Include education, certifications, and any side projects",
+          ].map((tip) => (
+            <li key={tip} className="text-xs text-amber-700 dark:text-amber-400/80 flex gap-2">
+              <span className="shrink-0">•</span>
+              {tip}
+            </li>
+          ))}
+        </ul>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -171,10 +192,14 @@ export function StepResume({ onNext }: { onNext: () => void }) {
         {/* ── PASTE TAB ── */}
         <TabsContent value="paste" className="space-y-4 mt-4">
           <div className="space-y-2">
-            <Label htmlFor="resume-text">Resume text</Label>
+            <Label htmlFor="resume-text">Paste your resume</Label>
+            <p className="text-xs text-muted-foreground">
+              Open your resume document, select all text (Ctrl+A / Cmd+A), copy it, and paste it here.
+              Plain text or formatted text both work fine.
+            </p>
             <Textarea
               id="resume-text"
-              placeholder="Paste your resume text here. Include your experience, skills, education, etc."
+              placeholder="Paste your resume text here — include your name, contact info, work experience, education, skills, and any projects or certifications..."
               rows={14}
               value={resume.pastedText}
               onChange={(e) => setResume({ pastedText: e.target.value })}
@@ -182,6 +207,14 @@ export function StepResume({ onNext }: { onNext: () => void }) {
             />
             <p className="text-xs text-muted-foreground">
               {resume.pastedText.length} characters
+              {resume.pastedText.length > 0 && resume.pastedText.length < 300 && (
+                <span className="text-amber-600 ml-2">
+                  — Looks short. Try including more details for better job matching.
+                </span>
+              )}
+              {resume.pastedText.length >= 300 && (
+                <span className="text-green-600 ml-2">— Good length!</span>
+              )}
             </p>
           </div>
         </TabsContent>
