@@ -33,9 +33,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for any Better Auth session cookie (handles different prefix formats)
+  // Better Auth sets __Secure- prefix on HTTPS (production)
   const hasSession = request.cookies.getAll().some(
-    (c) => c.name.includes("session_token") && !!c.value
+    (c) => (c.name === "__Secure-jobpilot.session_token" || c.name === "jobpilot.session_token") && !!c.value
   );
 
   // Redirect to login if accessing protected route without session cookie
