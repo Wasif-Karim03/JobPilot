@@ -31,12 +31,26 @@ export default function RegisterPage() {
     const { error } = await authClient.signUp.email({ email, password, name });
 
     if (error) {
-      toast.error(error.message ?? "Registration failed");
+      // If the email already exists, it likely means they started setup before but didn't finish.
+      // Direct them to sign in and continue from where they left off.
+      const msg = error.message ?? "";
+      if (
+        msg.toLowerCase().includes("already") ||
+        msg.toLowerCase().includes("exist") ||
+        msg.toLowerCase().includes("use")
+      ) {
+        toast.error("This email already started setup. Sign in to continue where you left off.", {
+          action: { label: "Sign in", onClick: () => router.push("/login") },
+          duration: 6000,
+        });
+      } else {
+        toast.error(msg || "Registration failed. Please try again.");
+      }
       setLoading(false);
       return;
     }
 
-    toast.success("Account created! Setting up your workspace...");
+    toast.success("Account created! Let's set up your profile.");
     router.push("/onboarding");
     router.refresh();
   }

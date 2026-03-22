@@ -1,8 +1,28 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { trpc } from "@/lib/trpc-client";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const { data: status } = trpc.user.getOnboardingStatus.useQuery(undefined, {
+    staleTime: 30 * 1000,
+  });
+
+  // Hard guard: if onboarding is not complete, send back to finish it
+  useEffect(() => {
+    if (status && !status.onboardingComplete) {
+      router.replace("/onboarding");
+    }
+  }, [status, router]);
+
+  // Don't render dashboard until we've confirmed onboarding is done
+  if (status && !status.onboardingComplete) return null;
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />

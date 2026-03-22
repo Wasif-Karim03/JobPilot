@@ -13,7 +13,9 @@ import { toast } from "sonner";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+  // Always route through onboarding — it redirects to /dashboard if already complete.
+  // This ensures incomplete accounts are always prompted to finish setup.
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/onboarding";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,12 +33,12 @@ function LoginForm() {
       return;
     }
 
-    router.push(callbackUrl);
+    router.push("/onboarding");
     router.refresh();
   }
 
   async function handleGoogleLogin() {
-    await authClient.signIn.social({ provider: "google", callbackURL: callbackUrl });
+    await authClient.signIn.social({ provider: "google", callbackURL: "/onboarding" });
   }
 
   return (
