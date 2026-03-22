@@ -65,6 +65,7 @@ export function StepResume({ onNext }: { onNext: () => void }) {
       const res = await fetch("/api/resume/upload", {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
 
       const data = await res.json();

@@ -508,8 +508,10 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Fall back to free APIs if Claude search returned nothing ───────────
+    let usingFreeApis = false;
     if (allJobs.length < 5) {
       console.log(`[search] ${hasApiKey ? "Claude returned too few results — " : "No API key — "}using free job board APIs`);
+      usingFreeApis = true;
       const [remotive, muse, jobicy] = await Promise.all([
         fetchRemotiveJobs(profile.titles),
         fetchMuseJobs(profile.titles),
@@ -534,9 +536,12 @@ export async function POST(req: NextRequest) {
     const usJobs = unique.filter((j) => isUSOrRemoteJob(j.location, j.title));
     console.log(`[search] After location filter: ${usJobs.length} / ${unique.length} jobs`);
 
-    // Filter to recent jobs only (posted within MAX_JOB_AGE_DAYS)
-    const recentJobs = usJobs.filter((j) => isRecentJob(j.postedDate));
-    console.log(`[search] After date filter (${MAX_JOB_AGE_DAYS} days): ${recentJobs.length} / ${usJobs.length} jobs`);
+    // Date filter: only apply to Claude results (they have real posted dates).
+    // Free API boards (Remotive, Muse, Jobicy) often have stale postedDate fields.
+    const recentJobs = usingFreeApis
+      ? usJobs
+      : usJobs.filter((j) => isRecentJob(j.postedDate));
+    console.log(`[search] After date filter: ${recentJobs.length} / ${usJobs.length} jobs`);
 
     // Score and rank
     const scored = recentJobs
