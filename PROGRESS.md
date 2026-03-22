@@ -2,13 +2,13 @@
 ║ PROJECT PROGRESS TRACKER — JobPilot ║
 ╠══════════════════════════════════════════════════════════╣
 ║ ║
-║ INFRASTRUCTURE SETUP [██████████] 100% ║
-║ ✅ Docker (Postgres + Redis) ║
-║ ✅ Railway (Production DB + Redis) ║
-║ ✅ Cloudflare R2 (File storage) ║
-║ ✅ Google OAuth + Gmail API ║
-║ ✅ Hunter.io API ║
-║ ✅ Environment variables complete ║
+║ INFRASTRUCTURE SETUP [░░░░░░░░░░] 0% ║
+║ ⬜ Docker (Postgres + Redis) ║
+║ ⬜ Railway (Production DB + Redis) ║
+║ ⬜ Cloudflare R2 (File storage) ║
+║ ⬜ Google OAuth + Gmail API ║
+║ ⬜ Hunter.io API ║
+║ ⬜ Environment variables complete ║
 ║ ║
 ║ PHASE A: Foundation [██████████] 100% ║
 ║ ✅ Monorepo setup (pnpm workspaces) ║
@@ -65,7 +65,7 @@
 ║ ✅ Gmail OAuth (optional, skippable) ║
 ║ ✅ Review step + completeOnboarding mutation ║
 ║ ✅ TypeScript: zero errors ║
-║ ✅ Verification Gate passed ║
+║ ⬜ Verification Gate passed ║
 ║ ║
 ║ PHASE E: Dashboard & Jobs [██████████] 100% ║
 ║ ✅ Dashboard layout + shell (sidebar, header, mobile nav) ║
@@ -74,7 +74,7 @@
 ║ ✅ Job detail page (match analysis, company intel, notes, tabs) ║
 ║ ✅ Supporting components (MatchScore, JobCard, CompanyIntel) ║
 ║ ✅ TypeScript: zero errors ║
-║ ✅ Verification Gate passed ║
+║ ⬜ Verification Gate passed ║
 ║ ║
 ║ PHASE F: Resume Editor [██████████] 100% ║
 ║ ✅ Structured form editor (all sections) ║
@@ -85,7 +85,7 @@
 ║ ✅ Resume list page + create/delete/set-master ║
 ║ ✅ Resume editor page (tabs, auto-save, download PDF) ║
 ║ ✅ TypeScript: zero errors ║
-║ ✅ Verification Gate passed ║
+║ ⬜ Verification Gate passed ║
 ║ ║
 ║ PHASE G: Application Tracker [██████████] 100% ║
 ║ ✅ Kanban board with @dnd-kit drag-and-drop ║
@@ -107,7 +107,7 @@
 ║ ✅ Hunter.io service (email finder, domain pattern) ║
 ║ ✅ Prisma schema copied + generated (v5.22 matching web) ║
 ║ ✅ TypeScript: zero errors ║
-║ ✅ Verification Gate passed (worker running on Railway) ║
+║ ⬜ Verification Gate passed (manual: run worker + trigger search) ║
 ║ ║
 ║ PHASE I: Admin, Settings & Polish [██████████] 100% ║
 ║ ✅ Admin layout + dashboard (stats, recent signups, system health) ║
@@ -120,7 +120,7 @@
 ║ ✅ useDebounce hook created ║
 ║ ✅ Toast (sonner) already wired in root layout ║
 ║ ✅ TypeScript: zero errors ║
-║ ✅ Verification Gate passed (manual browser testing) ║
+║ ⬜ Verification Gate passed (manual browser testing) ║
 ║ ║
 ║ PHASE J: Testing & Deployment [██████████] 100% ║
 ║ ✅ Unit tests — 62 passing (encryption, validations, constants, match-score, email-classification) ║
@@ -141,3 +141,4 @@
 ║ ✅ Verification Gate passed ║
 ║ ║
 ╚══════════════════════════════════════════════════════════╝
+

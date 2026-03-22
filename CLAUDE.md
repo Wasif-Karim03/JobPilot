@@ -22,42 +22,44 @@
 
 ## 2. Tech Stack Manifest
 
-| Layer | Technology | Version | Why This Over Alternatives |
-|---|---|---|---|
-| Language | TypeScript | 5.4+ | End-to-end type safety, Claude Code works best with TS |
-| Runtime | Node.js | 20 LTS | Stable, required by Next.js and worker |
-| Frontend Framework | Next.js | 14 (App Router) | SSR, API routes, Vercel-native, best DX for solo dev |
-| UI Components | shadcn/ui + Radix | Latest | Accessible, customizable, no vendor lock-in |
-| Styling | Tailwind CSS | 3.4+ | Fast iteration, design tokens, shadcn requires it |
-| Rich Text Editor | TipTap | 2.x | Best open-source rich text for React, extensible |
-| PDF Generation | @react-pdf/renderer | 3.x | Generate tailored resume PDFs client-side |
-| API Layer | tRPC | 11.x | End-to-end type safety with Next.js, zero codegen |
-| ORM | Prisma | 5.x | Type-safe, great migrations, excellent DX |
-| Primary Database | PostgreSQL | 16 | Default best choice, JSONB for flexible data, managed on Railway |
-| Cache / Queue | Redis | 7.x | BullMQ job queue + hot data caching, Railway managed |
-| Job Queue | BullMQ | 5.x | Reliable, Redis-backed, retries, dead letter, cron |
-| Authentication | Better Auth | 1.x | Self-hosted, email/password + Google OAuth, free, modern |
-| File Storage | Cloudflare R2 | — | S3-compatible, 10GB free, no egress fees |
-| Email Integration | Gmail API | v1 | Read-only OAuth2 for application tracking |
-| Contact Enrichment | Hunter.io API | v2 | Email pattern discovery, 25 free searches/mo |
-| AI Engine | Anthropic Claude API | Messages v1 | User's own API key — Opus 4.6 for research, Sonnet 4.6 for execution |
-| Error Tracking | Sentry | Latest | Free tier, source maps, Next.js integration |
-| Uptime Monitoring | BetterStack | — | Free tier, status page |
-| Hosting (Frontend) | Vercel | — | Free tier, preview deploys, perfect for Next.js |
-| Hosting (Worker + DB + Redis) | Railway | — | Managed Postgres + Redis + worker service, ~$5-15/mo |
-| Package Manager | pnpm | 9.x | Fast, strict, monorepo-ready |
-| Linting | ESLint | 9.x | Flat config, TypeScript-aware |
-| Formatting | Prettier | 3.x | Consistent code style |
-| Testing | Vitest + Playwright | Latest | Fast unit tests + E2E for critical paths |
-| CI/CD | GitHub Actions + Vercel | — | Lint → Type Check → Test → Deploy |
+| Layer                         | Technology              | Version         | Why This Over Alternatives                                           |
+| ----------------------------- | ----------------------- | --------------- | -------------------------------------------------------------------- |
+| Language                      | TypeScript              | 5.4+            | End-to-end type safety, Claude Code works best with TS               |
+| Runtime                       | Node.js                 | 20 LTS          | Stable, required by Next.js and worker                               |
+| Frontend Framework            | Next.js                 | 14 (App Router) | SSR, API routes, Vercel-native, best DX for solo dev                 |
+| UI Components                 | shadcn/ui + Radix       | Latest          | Accessible, customizable, no vendor lock-in                          |
+| Styling                       | Tailwind CSS            | 3.4+            | Fast iteration, design tokens, shadcn requires it                    |
+| Rich Text Editor              | TipTap                  | 2.x             | Best open-source rich text for React, extensible                     |
+| PDF Generation                | @react-pdf/renderer     | 3.x             | Generate tailored resume PDFs client-side                            |
+| API Layer                     | tRPC                    | 11.x            | End-to-end type safety with Next.js, zero codegen                    |
+| ORM                           | Prisma                  | 5.x             | Type-safe, great migrations, excellent DX                            |
+| Primary Database              | PostgreSQL              | 16              | Default best choice, JSONB for flexible data, managed on Railway     |
+| Cache / Queue                 | Redis                   | 7.x             | BullMQ job queue + hot data caching, Railway managed                 |
+| Job Queue                     | BullMQ                  | 5.x             | Reliable, Redis-backed, retries, dead letter, cron                   |
+| Authentication                | Better Auth             | 1.x             | Self-hosted, email/password + Google OAuth, free, modern             |
+| File Storage                  | Cloudflare R2           | —               | S3-compatible, 10GB free, no egress fees                             |
+| Email Integration             | Gmail API               | v1              | Read-only OAuth2 for application tracking                            |
+| Contact Enrichment            | Hunter.io API           | v2              | Email pattern discovery, 25 free searches/mo                         |
+| AI Engine                     | Anthropic Claude API    | Messages v1     | User's own API key — Opus 4.6 for research, Sonnet 4.6 for execution |
+| Error Tracking                | Sentry                  | Latest          | Free tier, source maps, Next.js integration                          |
+| Uptime Monitoring             | BetterStack             | —               | Free tier, status page                                               |
+| Hosting (Frontend)            | Vercel                  | —               | Free tier, preview deploys, perfect for Next.js                      |
+| Hosting (Worker + DB + Redis) | Railway                 | —               | Managed Postgres + Redis + worker service, ~$5-15/mo                 |
+| Package Manager               | pnpm                    | 9.x             | Fast, strict, monorepo-ready                                         |
+| Linting                       | ESLint                  | 9.x             | Flat config, TypeScript-aware                                        |
+| Formatting                    | Prettier                | 3.x             | Consistent code style                                                |
+| Testing                       | Vitest + Playwright     | Latest          | Fast unit tests + E2E for critical paths                             |
+| CI/CD                         | GitHub Actions + Vercel | —               | Lint → Type Check → Test → Deploy                                    |
 
 **System Requirements:**
+
 - Node.js 20+
 - pnpm 9+
 - Docker (local dev: Postgres + Redis)
 - Git
 
 **Monthly Cost Estimate at Launch:**
+
 - Railway (Worker + Postgres + Redis): ~$5–15/mo
 - Vercel (Frontend): Free tier
 - Cloudflare R2: Free tier (10GB storage, 10M reads/mo)
@@ -976,6 +978,7 @@ model SearchRun {
 ```
 
 **Indexes rationale:**
+
 - `users.email` — unique, login lookup
 - `jobs(userId, status)` — dashboard filtering by status
 - `jobs(userId, matchScore)` — sorting by best match
@@ -993,6 +996,7 @@ model SearchRun {
 All API endpoints use tRPC for end-to-end type safety. Each router maps to a domain module.
 
 **Standard Error Response Format:**
+
 ```typescript
 {
   code: "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "BAD_REQUEST" | "INTERNAL_SERVER_ERROR",
@@ -1270,15 +1274,15 @@ admin.getSystemHealth
 
 ### Rate Limiting
 
-| Endpoint Category | Limit |
-|---|---|
+| Endpoint Category                | Limit                    |
+| -------------------------------- | ------------------------ |
 | Auth endpoints (login, register) | 5 requests / 15 min / IP |
-| API key validation | 3 requests / min / user |
-| Manual search trigger | 1 / hour / user |
-| Manual email scan | 1 / 15 min / user |
-| Outreach generation | 10 / hour / user |
-| General API | 100 / min / user |
-| Admin endpoints | 60 / min / user |
+| API key validation               | 3 requests / min / user  |
+| Manual search trigger            | 1 / hour / user          |
+| Manual email scan                | 1 / 15 min / user        |
+| Outreach generation              | 10 / hour / user         |
+| General API                      | 100 / min / user         |
+| Admin endpoints                  | 60 / min / user          |
 
 ---
 
@@ -1309,7 +1313,7 @@ export const auth = betterAuth({
   },
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24,      // Refresh every 24 hours
+    updateAge: 60 * 60 * 24, // Refresh every 24 hours
     cookieCache: {
       enabled: true,
       maxAge: 60 * 5, // 5 min cookie cache
@@ -1412,23 +1416,23 @@ export function decrypt(encrypted: string, iv: string): string {
 
 ### Page Hierarchy & Auth Requirements
 
-| Route | Auth | Role | Description |
-|---|---|---|---|
-| `/` | Public | — | Landing page |
-| `/login` | Public (redirect if authed) | — | Login form |
-| `/register` | Public (redirect if authed) | — | Registration form |
-| `/onboarding` | Authenticated | USER | Multi-step onboarding wizard |
-| `/dashboard` | Authenticated + Onboarded | USER | Overview: recent jobs, stats, quick actions |
-| `/jobs` | Authenticated + Onboarded | USER | Job listings with filters and sorting |
-| `/jobs/[id]` | Authenticated + Onboarded | USER | Job detail + company intel + contacts |
-| `/applications` | Authenticated + Onboarded | USER | Kanban application tracker |
-| `/resume` | Authenticated + Onboarded | USER | Resume list + master resume |
-| `/resume/[id]` | Authenticated + Onboarded | USER | Resume editor (structured + rich text) |
-| `/outreach` | Authenticated + Onboarded | USER | All contacts + outreach drafts |
-| `/settings` | Authenticated | USER | API key, preferences, Gmail, account |
-| `/admin` | Authenticated | ADMIN | Admin dashboard |
-| `/admin/users` | Authenticated | ADMIN | User management |
-| `/admin/system` | Authenticated | ADMIN | System health + queue stats |
+| Route           | Auth                        | Role  | Description                                 |
+| --------------- | --------------------------- | ----- | ------------------------------------------- |
+| `/`             | Public                      | —     | Landing page                                |
+| `/login`        | Public (redirect if authed) | —     | Login form                                  |
+| `/register`     | Public (redirect if authed) | —     | Registration form                           |
+| `/onboarding`   | Authenticated               | USER  | Multi-step onboarding wizard                |
+| `/dashboard`    | Authenticated + Onboarded   | USER  | Overview: recent jobs, stats, quick actions |
+| `/jobs`         | Authenticated + Onboarded   | USER  | Job listings with filters and sorting       |
+| `/jobs/[id]`    | Authenticated + Onboarded   | USER  | Job detail + company intel + contacts       |
+| `/applications` | Authenticated + Onboarded   | USER  | Kanban application tracker                  |
+| `/resume`       | Authenticated + Onboarded   | USER  | Resume list + master resume                 |
+| `/resume/[id]`  | Authenticated + Onboarded   | USER  | Resume editor (structured + rich text)      |
+| `/outreach`     | Authenticated + Onboarded   | USER  | All contacts + outreach drafts              |
+| `/settings`     | Authenticated               | USER  | API key, preferences, Gmail, account        |
+| `/admin`        | Authenticated               | ADMIN | Admin dashboard                             |
+| `/admin/users`  | Authenticated               | ADMIN | User management                             |
+| `/admin/system` | Authenticated               | ADMIN | System health + queue stats                 |
 
 ### State Management
 
@@ -1453,6 +1457,7 @@ function JobList() {
 ```
 
 **Rules:**
+
 - Every data-fetching component has a loading skeleton, error state, and empty state
 - Mutations use optimistic updates for status changes
 - Stale time: 5 minutes for job listings, 1 minute for application status
@@ -1623,12 +1628,12 @@ export class RateLimitError extends AppError {
 
 ### Cron Schedule
 
-| Job | Schedule | Description |
-|---|---|---|
-| `daily-search-enqueue` | `0 * * * *` (every hour) | Check which users' search time matches current hour, enqueue their searches |
-| `email-scan-enqueue` | `0 * * * *` (every hour) | Enqueue email scans for all users with active Gmail |
-| `stale-search-cleanup` | `0 3 * * *` (3am daily) | Mark RUNNING searches older than 30min as FAILED |
-| `token-refresh` | `*/30 * * * *` (every 30min) | Refresh Gmail tokens expiring within 1 hour |
+| Job                    | Schedule                     | Description                                                                 |
+| ---------------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| `daily-search-enqueue` | `0 * * * *` (every hour)     | Check which users' search time matches current hour, enqueue their searches |
+| `email-scan-enqueue`   | `0 * * * *` (every hour)     | Enqueue email scans for all users with active Gmail                         |
+| `stale-search-cleanup` | `0 3 * * *` (3am daily)      | Mark RUNNING searches older than 30min as FAILED                            |
+| `token-refresh`        | `*/30 * * * *` (every 30min) | Refresh Gmail tokens expiring within 1 hour                                 |
 
 ### Structured Logging
 
@@ -1638,11 +1643,7 @@ import { createLogger, format, transports } from "winston";
 
 export const logger = createLogger({
   level: process.env.LOG_LEVEL || "info",
-  format: format.combine(
-    format.timestamp(),
-    format.errors({ stack: true }),
-    format.json()
-  ),
+  format: format.combine(format.timestamp(), format.errors({ stack: true }), format.json()),
   defaultMeta: { service: process.env.SERVICE_NAME || "jobpilot-web" },
   transports: [new transports.Console()],
 });
@@ -1674,10 +1675,12 @@ export async function searchJobs(
     model,
     max_tokens: 4096,
     tools: [{ type: "web_search_20250305", name: "web_search" }],
-    messages: [{
-      role: "user",
-      content: buildJobSearchPrompt(preferences, resumeContent),
-    }],
+    messages: [
+      {
+        role: "user",
+        content: buildJobSearchPrompt(preferences, resumeContent),
+      },
+    ],
   });
 
   return parseJobSearchResponse(response);
@@ -1716,6 +1719,7 @@ Return ONLY a JSON array of jobs found:
 ## 10. Implementation Phases with Verification Gates
 
 **IMPORTANT RULES FOR CLAUDE CODE:**
+
 - Execute phases in order A → J. Never skip ahead.
 - After completing each phase, run its Verification Gate.
 - If any Verification Gate check fails, fix the issue BEFORE proceeding.
@@ -1727,6 +1731,7 @@ Return ONLY a JSON array of jobs found:
 ### Phase A — Foundation (Est: 2-3 hours)
 
 **Tasks:**
+
 1. Initialize monorepo with pnpm workspaces (web + worker + packages/shared)
 2. Create Next.js 14 app in `web/` with TypeScript, Tailwind, ESLint, App Router, src directory
 3. Install ALL dependencies listed in Infrastructure Manifest Step 1
@@ -1792,6 +1797,7 @@ Return ONLY a JSON array of jobs found:
 ### Phase B — Database & Schema (Est: 2-3 hours)
 
 **Tasks:**
+
 1. Initialize Prisma in `web/prisma/` with PostgreSQL provider
 2. Copy COMPLETE schema from Section 5 into `schema.prisma`
 3. Run `pnpm prisma migrate dev --name init` to create initial migration
@@ -1862,6 +1868,7 @@ Return ONLY a JSON array of jobs found:
 ### Phase C — Authentication & API Layer (Est: 3-4 hours)
 
 **Tasks:**
+
 1. Configure Better Auth in `src/server/auth.ts` — exact config from Section 7
 2. Create auth API route handler at `src/app/api/auth/[...all]/route.ts`
 3. Create auth middleware for tRPC context (session extraction)
@@ -1930,6 +1937,7 @@ Return ONLY a JSON array of jobs found:
 ### Phase D — Onboarding Flow (Est: 3-4 hours)
 
 **Tasks:**
+
 1. Create multi-step onboarding wizard at `/onboarding/page.tsx`
 2. Create Zustand store for onboarding state (`stores/onboarding-store.ts`)
 3. Build Step 1: Master Resume Upload
@@ -2005,6 +2013,7 @@ Return ONLY a JSON array of jobs found:
 ### Phase E — Dashboard & Job Listings (Est: 4-5 hours)
 
 **Tasks:**
+
 1. Build dashboard layout shell (`(dashboard)/layout.tsx`):
    - Sidebar with nav: Dashboard, Jobs, Applications, Resume, Outreach, Settings
    - Collapsible sidebar on desktop, bottom nav on mobile
@@ -2085,6 +2094,7 @@ Return ONLY a JSON array of jobs found:
 ### Phase F — Resume Editor & PDF Generation (Est: 4-5 hours)
 
 **Tasks:**
+
 1. Build Resume List page (`/resume`):
    - Card grid showing all resumes
    - Master resume badge
@@ -2164,6 +2174,7 @@ Return ONLY a JSON array of jobs found:
 ### Phase G — Application Tracker (Est: 3-4 hours)
 
 **Tasks:**
+
 1. Build Kanban Board page (`/applications`):
    - Columns: Applied, Phone Screen, Interview, Offer, Rejected
    - Drag-and-drop between columns (use @dnd-kit/core)
@@ -2221,6 +2232,7 @@ Return ONLY a JSON array of jobs found:
 **This is the core engine. Take extra care.**
 
 **Tasks:**
+
 1. Set up worker entry point (`worker/src/index.ts`):
    - Initialize Redis connection
    - Initialize Prisma client
@@ -2325,6 +2337,7 @@ Return ONLY a JSON array of jobs found:
 ### Phase I — Admin Panel, Settings & Polish (Est: 3-4 hours)
 
 **Tasks:**
+
 1. Build Admin Dashboard (`/admin`):
    - Stats: total users, active users (7d), total jobs found, total applications
    - Chart: new users per day (last 30 days) — use recharts
@@ -2412,6 +2425,7 @@ Return ONLY a JSON array of jobs found:
 ### Phase J — Testing, Deployment & Launch (Est: 4-5 hours)
 
 **Tasks:**
+
 1. Write unit tests (Vitest):
    - Encryption service (encrypt/decrypt roundtrip, invalid key handling)
    - Zod validation schemas (valid + invalid inputs)
