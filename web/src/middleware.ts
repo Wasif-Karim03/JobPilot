@@ -16,9 +16,6 @@ const ADMIN_ROUTES = ["/admin"];
 // Routes that redirect authenticated users away
 const AUTH_ROUTES = ["/login", "/register"];
 
-// Better Auth session cookie name (matches cookiePrefix in auth.ts)
-const SESSION_COOKIE = "jobpilot.session_token";
-
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -36,9 +33,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Lightweight session check — just verify cookie exists (no DB call)
-  // Full auth validation happens in tRPC procedures
-  const hasSession = !!request.cookies.get(SESSION_COOKIE)?.value;
+  // Check for any Better Auth session cookie (handles different prefix formats)
+  const hasSession = request.cookies.getAll().some(
+    (c) => c.name.includes("session_token") && !!c.value
+  );
 
   // Redirect to login if accessing protected route without session cookie
   if ((isProtected || isAdmin) && !hasSession) {
