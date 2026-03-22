@@ -45,6 +45,21 @@ export const userRouter = createTRPCRouter({
       where: { id: ctx.user.id },
       data: { onboardingComplete: true },
     });
+
+    // Auto-create API config using the server's Claude key (no user key needed)
+    await ctx.prisma.userApiConfig.upsert({
+      where: { userId: ctx.user.id },
+      create: {
+        userId: ctx.user.id,
+        claudeApiKeyEncrypted: "server",
+        claudeApiKeyIv: "server",
+        researchModel: "claude-sonnet-4-6",
+        executionModel: "claude-sonnet-4-6",
+        searchDepth: "STANDARD",
+      },
+      update: {},
+    });
+
     return { success: true };
   }),
 

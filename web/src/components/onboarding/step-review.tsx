@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, FileText, SlidersHorizontal, Key, Mail, Pencil } from "lucide-react";
+import { CheckCircle2, FileText, SlidersHorizontal, Mail, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useOnboardingStore } from "@/stores/onboarding-store";
@@ -54,7 +54,7 @@ export function StepReview({
   onComplete: () => void;
   onGoToStep: (step: number) => void;
 }) {
-  const { resume, preferences, apiKey, gmailConnected, savedResumeId } = useOnboardingStore();
+  const { resume, preferences, gmailConnected, savedResumeId } = useOnboardingStore();
   const [completing, setCompleting] = useState(false);
 
   const completeOnboarding = trpc.user.completeOnboarding.useMutation();
@@ -81,16 +81,6 @@ export function StepReview({
           ? `Structured form — ${resume.contactInfo.name}`
           : "Structured form"
         : "Not entered";
-
-  const apiKeyDisplay = apiKey.apiKey
-    ? `sk-ant-...${apiKey.apiKey.slice(-4)}`
-    : "Not set";
-
-  const searchDepthLabel = {
-    LIGHT: "Light (~$1–2/run)",
-    STANDARD: "Standard (~$3–5/run)",
-    DEEP: "Deep (~$8–15/run)",
-  }[apiKey.searchDepth];
 
   return (
     <div className="space-y-6">
@@ -188,34 +178,11 @@ export function StepReview({
           )}
         </ReviewSection>
 
-        {/* API Key */}
-        <ReviewSection
-          icon={<Key className="h-4 w-4 text-amber-500" />}
-          title="Claude API Configuration"
-          onEdit={() => onGoToStep(3)}
-        >
-          <ReviewRow label="API Key" value={apiKeyDisplay} />
-          <ReviewRow label="Research" value={apiKey.researchModel} />
-          <ReviewRow label="Execution" value={apiKey.executionModel} />
-          <ReviewRow label="Search depth" value={searchDepthLabel} />
-          <ReviewRow
-            label="Daily search"
-            value={
-              apiKey.dailySearchEnabled
-                ? `Enabled at ${apiKey.searchTime}`
-                : "Disabled"
-            }
-          />
-          {apiKey.dailySearchEnabled && (
-            <ReviewRow label="Max daily cost" value={`$${apiKey.maxDailyApiCost}/day`} />
-          )}
-        </ReviewSection>
-
         {/* Gmail */}
         <ReviewSection
           icon={<Mail className="h-4 w-4 text-red-500" />}
           title="Gmail Integration"
-          onEdit={() => onGoToStep(4)}
+          onEdit={() => onGoToStep(3)}
         >
           <ReviewRow
             label="Status"
@@ -239,18 +206,12 @@ export function StepReview({
 
       <Button
         onClick={handleComplete}
-        disabled={completing || !apiKey.apiKey}
+        disabled={completing}
         className="w-full"
         size="lg"
       >
         {completing ? "Setting up..." : "Complete Setup & Go to Dashboard"}
       </Button>
-
-      {!apiKey.apiKey && (
-        <p className="text-xs text-center text-destructive">
-          You must enter a Claude API key before completing setup.
-        </p>
-      )}
     </div>
   );
 }

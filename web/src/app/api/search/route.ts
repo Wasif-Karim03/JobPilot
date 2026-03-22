@@ -3,7 +3,6 @@ import { auth } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { buildSearchTitles } from "@/lib/resume-analyzer";
 import { computeMatchScore } from "@/lib/job-matcher";
-import { decrypt } from "@jobpilot/shared/encryption";
 
 export const maxDuration = 120;
 
@@ -209,8 +208,7 @@ function buildResumeProfile(
 // ─── Claude web search ────────────────────────────────────────────────────────
 
 async function searchWithClaude(
-  encryptedKey: string,
-  iv: string,
+  apiKey: string,
   model: string,
   preferences: { targetTitles: string[]; targetLocations: string[]; remotePreference: string; experienceLevel: string; industries: string[]; keywords: string[]; salaryMin?: number | null; excludeCompanies: string[] },
   resume: { parsedContent?: string | null; summary?: string | null; skills?: unknown; customSections?: unknown } | null,
@@ -218,7 +216,6 @@ async function searchWithClaude(
 ): Promise<RawJob[]> {
   try {
     const Anthropic = (await import("@anthropic-ai/sdk")).default;
-    const apiKey = decrypt(encryptedKey, iv);
     const client = new Anthropic({ apiKey });
 
     // Build resume summary
@@ -489,16 +486,15 @@ export async function POST(req: NextRequest) {
     console.log("[search] AI keywords:", profile.aiKeywords.slice(0, 10));
     console.log("[search] Experience level:", profile.experienceLevel);
 
-    // ── Try Claude web search first (if user has API key) ──────────────────
+    // ── Try Claude web search (use server API key from env) ────────────────
     let allJobs: RawJob[] = [];
-    const hasApiKey = apiConfig?.claudeApiKeyEncrypted && apiConfig?.claudeApiKeyIv;
+    const serverApiKey = process.env.CLAUDE_API_KEY;
 
-    if (hasApiKey) {
-      console.log("[search] User has Claude API key — using Claude web search");
+    if (serverApiKey) {
+      console.log("[search] Using server Claude API key for web search");
       const claudeJobs = await searchWithClaude(
-        apiConfig!.claudeApiKeyEncrypted!,
-        apiConfig!.claudeApiKeyIv!,
-        apiConfig!.researchModel ?? "claude-sonnet-4-6",
+        serverApiKey,
+        apiConfig?.researchModel ?? "claude-sonnet-4-6",
         preferences,
         masterResume,
         storedAnalysis
@@ -510,7 +506,7 @@ export async function POST(req: NextRequest) {
     // ── Fall back to free APIs if Claude search returned nothing ───────────
     let usingFreeApis = false;
     if (allJobs.length < 5) {
-      console.log(`[search] ${hasApiKey ? "Claude returned too few results — " : "No API key — "}using free job board APIs`);
+      console.log(`[search] ${serverApiKey ? "Claude returned too few results — " : "No server API key — "}using free job board APIs`);
       usingFreeApis = true;
       const [remotive, muse, jobicy] = await Promise.all([
         fetchRemotiveJobs(profile.titles),

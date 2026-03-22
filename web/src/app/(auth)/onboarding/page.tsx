@@ -2,11 +2,10 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FileText, SlidersHorizontal, Key, Mail, ClipboardList } from "lucide-react";
+import { CheckCircle2, FileText, SlidersHorizontal, Mail, ClipboardList } from "lucide-react";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { StepResume } from "@/components/onboarding/step-resume";
 import { StepPreferences } from "@/components/onboarding/step-preferences";
-import { StepApiKey } from "@/components/onboarding/step-api-key";
 import { StepGmail } from "@/components/onboarding/step-gmail";
 import { StepReview } from "@/components/onboarding/step-review";
 import { trpc } from "@/lib/trpc-client";
@@ -14,7 +13,6 @@ import { trpc } from "@/lib/trpc-client";
 const STEPS = [
   { label: "Resume", icon: FileText },
   { label: "Preferences", icon: SlidersHorizontal },
-  { label: "API Key", icon: Key },
   { label: "Gmail", icon: Mail },
   { label: "Review", icon: ClipboardList },
 ] as const;
@@ -59,11 +57,10 @@ export default function OnboardingPage() {
 
               return (
                 <div key={s.label} className="flex items-center flex-1 last:flex-none">
-                  {/* Step circle */}
                   <button
                     type="button"
                     onClick={() => {
-                      if (stepNum < step) setStep(stepNum as 1 | 2 | 3 | 4 | 5);
+                      if (stepNum < step) setStep(stepNum as 1 | 2 | 3 | 4);
                     }}
                     disabled={stepNum >= step}
                     className={`flex items-center gap-2 transition-colors ${
@@ -98,7 +95,6 @@ export default function OnboardingPage() {
                     </span>
                   </button>
 
-                  {/* Connector line */}
                   {i < STEPS.length - 1 && (
                     <div
                       className={`flex-1 h-0.5 mx-2 sm:mx-3 transition-colors ${
@@ -118,12 +114,11 @@ export default function OnboardingPage() {
         <div className="w-full max-w-2xl">
           {step === 1 && <StepResume onNext={nextStep} />}
           {step === 2 && <StepPreferences onNext={nextStep} onBack={prevStep} />}
-          {step === 3 && <StepApiKey onNext={nextStep} onBack={prevStep} />}
-          {step === 4 && <StepGmail onNext={nextStep} onBack={prevStep} />}
-          {step === 5 && (
+          {step === 3 && <StepGmail onNext={nextStep} onBack={prevStep} />}
+          {step === 4 && (
             <StepReview
               onComplete={handleComplete}
-              onGoToStep={(s) => setStep(s as 1 | 2 | 3 | 4 | 5)}
+              onGoToStep={(s) => setStep(s as 1 | 2 | 3 | 4)}
             />
           )}
         </div>
