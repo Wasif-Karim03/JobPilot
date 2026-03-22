@@ -10,7 +10,7 @@ export function createClaudeClient(encryptedKey: string, iv: string): Anthropic 
   return new Anthropic({ apiKey });
 }
 
-// ─── Job Search ───────────────────────────────────────────────────────────────
+// ─── Job Search (with real web search) ───────────────────────────────────────
 
 export async function searchJobs(
   client: Anthropic,
@@ -25,19 +25,76 @@ export async function searchJobs(
     salaryMin?: number | null;
     excludeCompanies: string[];
   },
-  resumeSummary: string
+  resumeSummary: string,
+  resumeKeywords: string[] = []
 ): Promise<DiscoveredJob[]> {
-  const prompt = buildJobSearchPrompt(preferences, resumeSummary);
+  const prompt = buildJobSearchPrompt(preferences, resumeSummary, resumeKeywords);
+
+  // Multi-turn loop: handle web_search tool calls from Claude
+  const messages: Anthropic.MessageParam[] = [{ role: "user", content: prompt }];
+  let iterations = 0;
+  const MAX_ITERATIONS = 10; // Allow up to 10 web searches
 
   try {
-    const response = await client.messages.create({
-      model,
-      max_tokens: 4096,
-      messages: [{ role: "user", content: prompt }],
-    });
+    while (iterations < MAX_ITERATIONS) {
+      iterations++;
 
-    const text = response.content.find((b) => b.type === "text")?.text ?? "";
-    return parseJsonArray<DiscoveredJob>(text, []);
+      const response = await client.messages.create({
+        model,
+        max_tokens: 4096,
+        // Declare the built-in Anthropic web search tool
+        tools: [{ type: "web_search_20250305" as "web_search_20250305", name: "web_search" }],
+        messages,
+      });
+
+      logger.info("Claude response", {
+        stop_reason: response.stop_reason,
+        contentBlocks: response.content.length,
+        iteration: iterations,
+      });
+
+      if (response.stop_reason === "end_turn") {
+        // Final response — extract text and parse jobs
+        const text = response.content.find((b) => b.type === "text")?.text ?? "";
+        const jobs = parseDiscoveredJobs(text);
+        logger.info("Jobs parsed from Claude", { count: jobs.length });
+        return jobs;
+      }
+
+      if (response.stop_reason === "tool_use") {
+        // Claude wants to call web_search — add its response to the conversation
+        messages.push({ role: "assistant", content: response.content });
+
+        // For the built-in web_search_20250305, Anthropic handles execution server-side.
+        // We send back tool_result blocks with empty content — Anthropic populates them.
+        const toolResults: Anthropic.ToolResultBlockParam[] = response.content
+          .filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use")
+          .map((b) => ({
+            type: "tool_result" as const,
+            tool_use_id: b.id,
+            content: "",
+          }));
+
+        if (toolResults.length > 0) {
+          messages.push({ role: "user", content: toolResults });
+        }
+        continue;
+      }
+
+      // Unexpected stop reason — break and parse whatever we have
+      break;
+    }
+
+    // Fallback: parse last text block in messages
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === "assistant" && Array.isArray(msg.content)) {
+        const text = (msg.content as Anthropic.ContentBlock[]).find((b) => b.type === "text")?.text ?? "";
+        if (text) return parseDiscoveredJobs(text);
+      }
+    }
+
+    return [];
   } catch (err) {
     logger.error("Claude job search failed", { error: (err as Error).message, model });
     return [];
@@ -55,37 +112,113 @@ function buildJobSearchPrompt(
     salaryMin?: number | null;
     excludeCompanies: string[];
   },
-  resume: string
+  resume: string,
+  keywords: string[]
 ): string {
-  return `You are an expert job search assistant. Based on the candidate profile below, generate a list of realistic job postings they should apply to.
+  const titlesStr = prefs.targetTitles.slice(0, 6).join(", ");
+  const locStr = prefs.targetLocations.slice(0, 3).join(", ") || "United States";
+  const keywordsStr = keywords.slice(0, 20).join(", ");
+  const isRemote = prefs.remotePreference === "remote" || prefs.remotePreference === "any";
+
+  // Build varied search queries to maximize job board coverage
+  const searchQueries = [
+    `${prefs.targetTitles[0]} jobs ${isRemote ? "remote" : locStr} site:linkedin.com/jobs`,
+    `${prefs.targetTitles[0]} ${prefs.experienceLevel} level jobs ${isRemote ? "remote" : locStr} site:indeed.com`,
+    prefs.targetTitles[1]
+      ? `${prefs.targetTitles[1]} jobs ${isRemote ? "remote" : locStr} site:glassdoor.com`
+      : `${prefs.targetTitles[0]} jobs ${locStr} -site:linkedin.com -site:indeed.com`,
+    `${prefs.targetTitles[0]} ${prefs.experienceLevel} hiring 2025`,
+  ];
+
+  return `You are a job search agent. Your task is to find REAL, currently open job listings that match this candidate.
 
 CANDIDATE PROFILE:
-${resume}
+${resume.slice(0, 1500)}
+
+KEY SKILLS: ${keywordsStr || prefs.keywords.join(", ")}
 
 SEARCH CRITERIA:
-- Job titles: ${prefs.targetTitles.join(", ")}
-- Locations: ${prefs.targetLocations.join(", ")}
+- Job titles: ${titlesStr}
+- Locations: ${locStr}
 - Remote preference: ${prefs.remotePreference}
 - Experience level: ${prefs.experienceLevel}
-- Industries: ${prefs.industries.join(", ")}
-- Keywords: ${prefs.keywords.join(", ")}
-${prefs.salaryMin ? `- Minimum salary: $${prefs.salaryMin}` : ""}
-${prefs.excludeCompanies.length ? `- EXCLUDE companies: ${prefs.excludeCompanies.join(", ")}` : ""}
+${prefs.salaryMin ? `- Minimum salary: $${prefs.salaryMin.toLocaleString()}` : ""}
+${prefs.excludeCompanies.length ? `- EXCLUDE these companies: ${prefs.excludeCompanies.join(", ")}` : ""}
 
-Generate 10-15 realistic job listings that match this profile. Return ONLY a valid JSON array, no other text:
+INSTRUCTIONS:
+1. Use the web_search tool to search for REAL currently posted jobs. Try these search queries (one at a time):
+${searchQueries.map((q, i) => `   Query ${i + 1}: "${q}"`).join("\n")}
 
+2. Also search: "${titlesStr} jobs posted this week"
+
+3. For each job found, extract:
+   - The EXACT job title as posted
+   - Company name
+   - Location (city/state or "Remote")
+   - The ACTUAL application URL (LinkedIn job URL, Indeed job URL, or company career page URL)
+   - Salary range if mentioned
+   - Date posted
+   - First 400 characters of the job description
+
+4. Only include jobs:
+   - Posted within the last 14 days
+   - Located in US or remote/worldwide
+   - That genuinely match the candidate's profile
+
+5. After ALL searches are complete, output ONLY a JSON array:
 [
   {
-    "title": "Software Engineer",
-    "company": "Acme Corp",
-    "location": "Remote",
-    "url": "https://example.com/jobs/123",
-    "source": "company_site",
-    "salaryRange": "$120k - $160k",
-    "postedDate": "${new Date().toISOString().split("T")[0]}",
-    "description": "Brief job description..."
+    "title": "exact job title from posting",
+    "company": "company name",
+    "location": "city, state OR Remote",
+    "url": "https://actual-job-posting-url.com",
+    "source": "linkedin|indeed|glassdoor|wellfound|company_site|other",
+    "salaryRange": "$X,000 - $Y,000 OR null",
+    "postedDate": "YYYY-MM-DD",
+    "description": "first 400 chars of job description"
   }
-]`;
+]
+
+Find 15-25 real jobs. Use REAL URLs only — do not make up URLs.`;
+}
+
+// ─── Parse Claude's text response into DiscoveredJob[] ────────────────────────
+
+function parseDiscoveredJobs(text: string): DiscoveredJob[] {
+  try {
+    // Find JSON array in the response
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return [];
+
+    const parsed = JSON.parse(match[0]) as DiscoveredJob[];
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((j) => j && j.title && j.company && j.url)
+      .filter((j) => {
+        // Filter out clearly fake/example URLs
+        const url = j.url.toLowerCase();
+        return (
+          url.startsWith("http") &&
+          !url.includes("example.com") &&
+          !url.includes("placeholder") &&
+          !url.includes("yourcompany") &&
+          url.length > 20
+        );
+      })
+      .map((j) => ({
+        title: String(j.title).trim(),
+        company: String(j.company).trim(),
+        location: String(j.location || "Remote").trim(),
+        url: String(j.url).trim(),
+        source: String(j.source || "ai_search").trim(),
+        salaryRange: j.salaryRange ? String(j.salaryRange) : undefined,
+        postedDate: j.postedDate ? String(j.postedDate) : undefined,
+        description: j.description ? String(j.description).slice(0, 2000) : undefined,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 // ─── Match Analysis ───────────────────────────────────────────────────────────
@@ -122,7 +255,6 @@ export async function analyzeMatch(
     const text = response.content.find((b) => b.type === "text")?.text ?? "";
     const parsed = parseJsonObject<MatchAnalysisResult>(text, defaultResult);
 
-    // Clamp scores 0-100
     parsed.matchScore = Math.max(0, Math.min(100, parsed.matchScore));
     parsed.titleMatch = Math.max(0, Math.min(100, parsed.titleMatch));
     parsed.skillsMatch = Math.max(0, Math.min(100, parsed.skillsMatch));
@@ -212,10 +344,9 @@ export async function researchCompany(
 
 function buildCompanyIntelPrompt(company: string, jobTitle: string, school?: string): string {
   return `Research the company "${company}" for a candidate applying for a "${jobTitle}" role.
-
 ${school ? `The candidate attended: ${school}` : ""}
 
-Return ONLY a valid JSON object with this structure, no other text:
+Return ONLY a valid JSON object, no other text:
 {
   "companyInfo": {
     "size": "startup|small|mid|large|enterprise",
@@ -237,8 +368,8 @@ Return ONLY a valid JSON object with this structure, no other text:
   ]
 }
 
-Priority order for contacts: Alumni (10) > HR/Recruiter (8) > Hiring Manager (7) > Engineering Manager (6) > CTO/VP Eng (5) > CEO (4) > Employee (3).
-Include 3-5 realistic contacts. If you don't know real names, generate plausible ones for the company.`;
+Priority: Alumni (10) > HR/Recruiter (8) > Hiring Manager (7) > Engineering Manager (6) > CTO/VP (5) > CEO (4).
+Include 3-5 contacts.`;
 }
 
 // ─── Email Classification ─────────────────────────────────────────────────────
@@ -292,17 +423,10 @@ Return ONLY a valid JSON object, no other text:
   "company": <"company name" or null>,
   "detectedStatus": <"APPLIED"|"PHONE_SCREEN"|"INTERVIEW"|"OFFER"|"REJECTED"|null>,
   "confidence": <0.0-1.0>
+}`;
 }
 
-Status detection rules:
-- APPLIED: application received/confirmation
-- PHONE_SCREEN: phone screen scheduled/invite
-- INTERVIEW: interview scheduled/invite
-- OFFER: job offer received
-- REJECTED: rejected/not moving forward/position filled`;
-}
-
-// ─── Outreach Draft Generation ────────────────────────────────────────────────
+// ─── Outreach Draft ────────────────────────────────────────────────────────────
 
 export async function generateOutreachDraft(
   client: Anthropic,
@@ -352,21 +476,11 @@ Return ONLY a valid JSON object, no other text:
 ${
   isLinkedIn
     ? `{ "content": "<linkedin note under 200 chars, warm and professional>" }`
-    : `{ "subject": "<compelling email subject>", "content": "<3-4 paragraph cold email, personalized to their role, specific about the position, ends with clear CTA>" }`
+    : `{ "subject": "<compelling email subject>", "content": "<3-4 paragraph cold email, personalized, specific, ends with clear CTA>" }`
 }`;
 }
 
-// ─── JSON parsing helpers ────────────────────────────────────────────────────
-
-function parseJsonArray<T>(text: string, fallback: T[]): T[] {
-  try {
-    const match = text.match(/\[[\s\S]*\]/);
-    if (!match) return fallback;
-    return JSON.parse(match[0]) as T[];
-  } catch {
-    return fallback;
-  }
-}
+// ─── JSON helpers ─────────────────────────────────────────────────────────────
 
 function parseJsonObject<T>(text: string, fallback: T): T {
   try {

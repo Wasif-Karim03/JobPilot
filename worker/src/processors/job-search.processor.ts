@@ -4,7 +4,7 @@ import { getDb } from "../lib/db";
 import { logger } from "../lib/logger";
 import { createClaudeClient, searchJobs } from "../services/claude";
 import { matchAnalysisQueue } from "../queues";
-import type { JobSearchPayload, DiscoveredJob } from "@jobpilot/shared/types";
+import type { JobSearchPayload } from "@jobpilot/shared/types";
 
 export function createJobSearchWorker(): Worker {
   return new Worker<JobSearchPayload>(
@@ -42,11 +42,18 @@ export function createJobSearchWorker(): Worker {
           apiConfig.claudeApiKeyIv
         );
 
-        // Build resume summary for search context
+        // Build resume summary + extract keywords from stored AI analysis
         const resumeSummary = buildResumeSummary(masterResume);
+        const resumeKeywords = extractResumeKeywords(masterResume);
 
-        // Run search
-        const discovered = await searchJobs(client, model, preferences, resumeSummary);
+        logger.info("Starting Claude web search", {
+          userId,
+          titles: preferences.targetTitles,
+          keywordCount: resumeKeywords.length,
+        });
+
+        // Run search using Claude with real web search
+        const discovered = await searchJobs(client, model, preferences, resumeSummary, resumeKeywords);
 
         logger.info("Jobs discovered", { count: discovered.length, userId });
 
@@ -141,6 +148,7 @@ function buildResumeSummary(
     summary?: string | null;
     skills?: unknown;
     experience?: unknown;
+    customSections?: unknown;
   } | null
 ): string {
   if (!resume) return "Entry-level candidate";
@@ -150,10 +158,36 @@ function buildResumeSummary(
   if (resume.summary) parts.push(resume.summary);
 
   if (resume.skills && typeof resume.skills === "object") {
-    const s = resume.skills as Record<string, string>;
-    if (s.technical) parts.push(`Skills: ${s.technical}`);
-    if (s.frameworks) parts.push(`Frameworks: ${s.frameworks}`);
+    for (const val of Object.values(resume.skills as Record<string, unknown>)) {
+      if (Array.isArray(val)) parts.push(val.join(", "));
+      else if (typeof val === "string") parts.push(val);
+    }
   }
 
-  return parts.join("\n") || "Software engineering candidate";
+  return parts.join("\n") || "General professional candidate";
+}
+
+// Extract AI-analyzed keywords from the stored resume analysis
+function extractResumeKeywords(
+  resume: { customSections?: unknown } | null
+): string[] {
+  if (!resume?.customSections) return [];
+
+  try {
+    const custom = resume.customSections as Record<string, unknown>;
+    const analysis = custom._analysis as {
+      keywords?: string[];
+      skills?: string[];
+    } | undefined;
+
+    if (!analysis) return [];
+
+    const keywords = new Set<string>();
+    for (const kw of analysis.keywords ?? []) keywords.add(kw);
+    for (const sk of analysis.skills ?? []) keywords.add(sk.toLowerCase());
+
+    return Array.from(keywords).slice(0, 40);
+  } catch {
+    return [];
+  }
 }
