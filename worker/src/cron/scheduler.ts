@@ -116,6 +116,30 @@ export async function enqueueEmailScans(): Promise<void> {
   }
 }
 
+// ─── Incomplete account cleanup ───────────────────────────────────────────────
+// Deletes users who registered but never finished onboarding within 1 hour.
+// Cascade delete removes all their partial data (resume drafts, sessions, etc.)
+
+export async function cleanupIncompleteAccounts(): Promise<void> {
+  const db = getDb();
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+  try {
+    const result = await db.user.deleteMany({
+      where: {
+        onboardingComplete: false,
+        createdAt: { lt: oneHourAgo },
+      },
+    });
+
+    if (result.count > 0) {
+      logger.info("Deleted incomplete accounts", { count: result.count });
+    }
+  } catch (err) {
+    logger.error("Incomplete account cleanup failed", { error: (err as Error).message });
+  }
+}
+
 // ─── Stale search cleanup ─────────────────────────────────────────────────────
 
 export async function cleanupStaleSearchRuns(): Promise<void> {
@@ -163,9 +187,15 @@ export function startCronScheduler(): NodeJS.Timeout[] {
     setInterval(() => void cleanupStaleSearchRuns(), 30 * 60 * 1000)
   );
 
+  // Every 30 minutes: delete accounts that never finished onboarding
+  timers.push(
+    setInterval(() => void cleanupIncompleteAccounts(), 30 * 60 * 1000)
+  );
+
   // Run immediately on startup
   void enqueueDailySearches();
   void enqueueEmailScans();
+  void cleanupIncompleteAccounts();
 
   logger.info("Cron scheduler started");
   return timers;
