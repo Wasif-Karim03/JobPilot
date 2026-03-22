@@ -1,11 +1,8 @@
-[phases.setup]
-nixPkgs = ["nodejs_20"]
-
 [phases.install]
-cmds = ["npm install -g pnpm", "pnpm install --frozen-lockfile"]
+cmds = ["pnpm install --frozen-lockfile"]
 
 [phases.build]
-cmds = ["pnpm prisma generate", "pnpm build"]
+cmds = ["pnpm --filter worker exec prisma generate", "pnpm --filter worker build"]
 
 [start]
-cmd = "node dist/index.js"
+cmd = "pnpm --filter worker start"
