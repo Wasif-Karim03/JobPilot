@@ -33,8 +33,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Get session
-  const session = await auth.api.getSession({ headers: request.headers });
+  // Get session — if auth fails, fail open (let the page/API handle auth)
+  let session: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
+  try {
+    session = await auth.api.getSession({ headers: request.headers });
+  } catch {
+    // DB unavailable or auth misconfigured — allow public routes, block protected
+    if (isProtected || isAdmin) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.next();
+  }
 
   // Redirect to login if accessing protected route without session
   if ((isProtected || isAdmin) && !session?.user) {
@@ -45,8 +56,6 @@ export async function middleware(request: NextRequest) {
 
   // Redirect admin routes for non-admins
   if (isAdmin && session?.user) {
-    // Check role via DB — we'd need to fetch it here, but for middleware simplicity
-    // we do a lightweight check. Full check happens in adminProcedure.
     const role = (session.user as { role?: string }).role;
     if (role !== "ADMIN") {
       return NextResponse.redirect(new URL("/dashboard", request.url));
