@@ -165,24 +165,15 @@ export const jobRouter = createTRPCRouter({
     }),
 
   triggerSearch: protectedProcedure.input(triggerSearchSchema).mutation(async ({ ctx, input }) => {
-    // Check user has API key configured
     const apiConfig = await ctx.prisma.userApiConfig.findUnique({
       where: { userId: ctx.user.id },
-      select: { id: true, searchDepth: true },
+      select: { searchDepth: true },
     });
 
-    if (!apiConfig) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Configure your Claude API key before triggering a search",
-      });
-    }
-
-    // Create search run (worker will pick it up)
     const searchRun = await ctx.prisma.searchRun.create({
       data: {
         userId: ctx.user.id,
-        searchDepth: input.depth ?? apiConfig.searchDepth,
+        searchDepth: input.depth ?? apiConfig?.searchDepth ?? "STANDARD",
         status: "QUEUED",
       },
     });
@@ -238,8 +229,8 @@ export const jobRouter = createTRPCRouter({
       ]);
 
     const topJobs = await ctx.prisma.job.findMany({
-      where: { userId, isHidden: false, matchScore: { gte: 80 } },
-      orderBy: { matchScore: "desc" },
+      where: { userId, isHidden: false },
+      orderBy: [{ matchScore: "desc" }, { discoveredAt: "desc" }],
       take: 5,
       select: {
         id: true,

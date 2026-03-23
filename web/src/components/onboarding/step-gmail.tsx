@@ -28,21 +28,32 @@ export function StepGmail({
     setConnecting(true);
     try {
       const { authUrl } = await initiateOAuth.mutateAsync();
-      // Open OAuth flow in new tab
-      const popup = window.open(authUrl, "gmail-oauth", "width=600,height=700");
 
-      // Poll for completion
-      const interval = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(interval);
+      // Listen for success message from the popup
+      const onMessage = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data?.type === "GMAIL_CONNECTED") {
+          window.removeEventListener("message", onMessage);
           setConnecting(false);
-          // Refresh connection status
           getConnectionStatus.refetch().then((res) => {
             if (res.data?.connected) {
               setGmailConnected(true);
               toast.success("Gmail connected successfully");
             }
           });
+        }
+      };
+      window.addEventListener("message", onMessage);
+
+      const popup = window.open(authUrl, "gmail-oauth", "width=600,height=700");
+
+      // Fallback: if popup is closed without sending message
+      const interval = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(interval);
+          window.removeEventListener("message", onMessage);
+          setConnecting(false);
+          getConnectionStatus.refetch();
         }
       }, 500);
     } catch {

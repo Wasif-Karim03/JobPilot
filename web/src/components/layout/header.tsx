@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc-client";
 
@@ -38,17 +37,15 @@ export function Header() {
       <div className="flex-1" />
 
       <DropdownMenu>
-        <DropdownMenuTrigger>
-          <Button variant="ghost" size="sm" className="gap-2 h-9" type="button">
-            <Avatar className="h-7 w-7">
-              <AvatarImage src={profile?.avatarUrl ?? undefined} />
-              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-            </Avatar>
-            <span className="hidden sm:block text-sm font-medium max-w-32 truncate">
-              {profile?.name ?? profile?.email ?? "Account"}
-            </span>
-            <ChevronDown className="h-3 w-3 text-muted-foreground" />
-          </Button>
+        <DropdownMenuTrigger className="flex items-center gap-2 h-9 px-3 rounded-md text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors outline-none">
+          <Avatar className="h-7 w-7">
+            <AvatarImage src={profile?.avatarUrl ?? undefined} />
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
+          <span className="hidden sm:block text-sm font-medium max-w-32 truncate">
+            {profile?.name ?? profile?.email ?? "Account"}
+          </span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
           <div className="px-2 py-1.5">

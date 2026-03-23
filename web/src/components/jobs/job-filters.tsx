@@ -102,16 +102,14 @@ export function JobFiltersBar({ filters, onChange, onReset }: JobFiltersBarProps
 
       {/* Filter sheet */}
       <Sheet>
-        <SheetTrigger>
-          <Button variant="outline" size="sm" className="h-9 gap-2" type="button">
-            <SlidersHorizontal className="h-4 w-4" />
-            Filters
-            {hasActiveFilters && (
-              <Badge variant="secondary" className="h-4 w-4 p-0 flex items-center justify-center text-xs rounded-full">
-                •
-              </Badge>
-            )}
-          </Button>
+        <SheetTrigger className="inline-flex items-center gap-2 h-9 px-3 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+          <SlidersHorizontal className="h-4 w-4" />
+          Filters
+          {hasActiveFilters && (
+            <Badge variant="secondary" className="h-4 w-4 p-0 flex items-center justify-center text-xs rounded-full">
+              •
+            </Badge>
+          )}
         </SheetTrigger>
 
         <SheetContent>
