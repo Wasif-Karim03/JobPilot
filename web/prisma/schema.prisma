@@ -222,6 +222,7 @@ model GmailConnection {
   refreshTokenIv        String    @map("refresh_token_iv")
   tokenExpiry           DateTime  @map("token_expiry")
   lastScanAt            DateTime? @map("last_scan_at")
+  jobSearchStartDate    DateTime? @map("job_search_start_date") // User-specified date to start scanning from
   isActive              Boolean   @default(true) @map("is_active")
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
@@ -431,10 +432,12 @@ model EmailScan {
   confidence      Float? // 0.0-1.0
   linkedJobId     String?    @map("linked_job_id")
   processed       Boolean    @default(false)
+  emailDate       DateTime?  @map("email_date") // Actual date the email was received
   scannedAt       DateTime   @default(now()) @map("scanned_at")
 
   @@unique([userId, gmailMessageId])
   @@index([userId, scannedAt])
+  @@index([userId, detectedCompany])
   @@map("email_scans")
 }
 

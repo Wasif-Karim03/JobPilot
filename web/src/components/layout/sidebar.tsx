@@ -10,6 +10,7 @@ import {
   Mail,
   Settings,
   Zap,
+  Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/applications", label: "Applications", icon: ClipboardList },
+  { href: "/email-tracker", label: "Email Tracker", icon: Inbox },
   { href: "/resume", label: "Resume", icon: FileText },
   { href: "/outreach", label: "Outreach", icon: Mail },
   { href: "/settings", label: "Settings", icon: Settings },

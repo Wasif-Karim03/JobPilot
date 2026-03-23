@@ -7,6 +7,7 @@ import { applicationRouter } from "./routers/application";
 import { outreachRouter } from "./routers/outreach";
 import { gmailRouter } from "./routers/gmail";
 import { adminRouter } from "./routers/admin";
+import { emailTrackerRouter } from "./routers/emailTracker";
 
 export const appRouter = createTRPCRouter({
   user: userRouter,
@@ -17,6 +18,7 @@ export const appRouter = createTRPCRouter({
   outreach: outreachRouter,
   gmail: gmailRouter,
   admin: adminRouter,
+  emailTracker: emailTrackerRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Briefcase, ClipboardList, FileText, Settings } from "lucide-react";
+import { LayoutDashboard, Briefcase, ClipboardList, Inbox, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MOBILE_NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/applications", label: "Apps", icon: ClipboardList },
-  { href: "/resume", label: "Resume", icon: FileText },
+  { href: "/email-tracker", label: "Tracker", icon: Inbox },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

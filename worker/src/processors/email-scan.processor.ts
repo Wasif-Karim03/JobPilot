@@ -17,7 +17,10 @@ export function createEmailScanWorker(): Worker {
       logger.info("Email scan started", { userId });
 
       const [gmailConnection, apiConfig] = await Promise.all([
-        db.gmailConnection.findUnique({ where: { userId } }),
+        db.gmailConnection.findUnique({
+          where: { userId },
+          // jobSearchStartDate is a new field — select it explicitly
+        }),
         db.userApiConfig.findUnique({ where: { userId } }),
       ]);
 
@@ -49,11 +52,13 @@ export function createEmailScanWorker(): Worker {
         });
       }
 
-      // Scan messages since last scan
-      const messages = await scanGmailMessages(
-        oauth2Client,
-        gmailConnection.lastScanAt ?? undefined
-      );
+      // Scan messages: use lastScanAt if available, else fall back to jobSearchStartDate
+      const scanSince =
+        gmailConnection.lastScanAt ??
+        (gmailConnection as { jobSearchStartDate?: Date | null }).jobSearchStartDate ??
+        undefined;
+
+      const messages = await scanGmailMessages(oauth2Client, scanSince);
 
       logger.info("Gmail messages found", { count: messages.length, userId });
 
@@ -114,6 +119,7 @@ export function createEmailScanWorker(): Worker {
             detectedCompany: classification.company ?? null,
             detectedStatus: classification.detectedStatus as import("@prisma/client").JobStatus ?? null,
             confidence: classification.confidence,
+            emailDate: message.date,
             linkedJobId,
             processed: !!linkedJobId,
           },

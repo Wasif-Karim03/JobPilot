@@ -66,7 +66,7 @@ export async function scanGmailMessages(
     const listRes = await gmail.users.messages.list({
       userId: "me",
       q: query,
-      maxResults: 50,
+      maxResults: 100,
     });
 
     const messages = listRes.data.messages ?? [];
@@ -74,7 +74,7 @@ export async function scanGmailMessages(
 
     const results: GmailMessage[] = [];
 
-    for (const msg of messages.slice(0, 20)) {
+    for (const msg of messages.slice(0, 100)) {
       if (!msg.id) continue;
       try {
         const detail = await gmail.users.messages.get({
