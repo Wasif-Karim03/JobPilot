@@ -1,11 +1,22 @@
 import { Worker, type Job } from "bullmq";
+import Anthropic from "@anthropic-ai/sdk";
 import { getRedisConnectionOptions } from "../lib/redis";
 import { getDb } from "../lib/db";
 import { logger } from "../lib/logger";
-import { createClaudeClient, classifyEmail } from "../services/claude";
+import { classifyEmail } from "../services/claude";
 import { getAuthenticatedGmailClient, scanGmailMessages } from "../services/gmail";
-import { encrypt } from "@jobpilot/shared/encryption";
+import { encrypt, decrypt } from "@jobpilot/shared/encryption";
+import { env } from "../lib/env";
 import type { EmailScanPayload } from "@jobpilot/shared/types";
+
+export interface ScanProgress {
+  percent: number;
+  message: string;
+}
+
+async function progress(job: Job, percent: number, message: string) {
+  await job.updateProgress({ percent, message } satisfies ScanProgress);
+}
 
 export function createEmailScanWorker(): Worker {
   return new Worker<EmailScanPayload>(
@@ -14,25 +25,27 @@ export function createEmailScanWorker(): Worker {
       const { userId } = job.data;
       const db = getDb();
 
+      await progress(job, 5, "Starting sync…");
       logger.info("Email scan started", { userId });
 
       const [gmailConnection, apiConfig] = await Promise.all([
-        db.gmailConnection.findUnique({
-          where: { userId },
-          // jobSearchStartDate is a new field — select it explicitly
-        }),
+        db.gmailConnection.findUnique({ where: { userId } }),
         db.userApiConfig.findUnique({ where: { userId } }),
       ]);
 
       if (!gmailConnection?.isActive) {
         logger.info("No active Gmail connection, skipping", { userId });
+        await progress(job, 100, "No Gmail connection found.");
         return;
       }
 
       if (!apiConfig) {
         logger.warn("No API config for email scan", { userId });
+        await progress(job, 100, "No API key configured.");
         return;
       }
+
+      await progress(job, 15, "Connecting to Gmail…");
 
       // Get authenticated Gmail client
       const { client: oauth2Client, newCredentials } = await getAuthenticatedGmailClient(
@@ -52,6 +65,8 @@ export function createEmailScanWorker(): Worker {
         });
       }
 
+      await progress(job, 25, "Fetching emails from Gmail…");
+
       // Scan messages: use lastScanAt if available, else fall back to jobSearchStartDate
       const scanSince =
         gmailConnection.lastScanAt ??
@@ -67,17 +82,40 @@ export function createEmailScanWorker(): Worker {
           where: { userId },
           data: { lastScanAt: new Date() },
         });
+        await progress(job, 100, "No new emails found.");
         return;
       }
 
-      const claudeClient = createClaudeClient(
-        apiConfig.claudeApiKeyEncrypted,
-        apiConfig.claudeApiKeyIv
-      );
+      await progress(job, 30, `Found ${messages.length} email${messages.length !== 1 ? "s" : ""}. Classifying…`);
+
+      // Use per-user key if valid, fall back to shared server-side key
+      let claudeClient: Anthropic;
+      try {
+        const userKey = decrypt(apiConfig.claudeApiKeyEncrypted, apiConfig.claudeApiKeyIv);
+        claudeClient = new Anthropic({ apiKey: userKey });
+      } catch {
+        if (!env.CLAUDE_API_KEY) {
+          await progress(job, 100, "No Claude API key configured.");
+          logger.warn("No Claude API key available for email scan", { userId });
+          return;
+        }
+        claudeClient = new Anthropic({ apiKey: env.CLAUDE_API_KEY });
+      }
 
       let processed = 0;
+      const total = messages.length;
 
-      for (const message of messages) {
+      for (let i = 0; i < messages.length; i++) {
+        const message = messages[i];
+
+        // Emit progress per email: 30% → 90% range
+        const scanPercent = 30 + Math.round(((i + 1) / total) * 60);
+        await progress(
+          job,
+          scanPercent,
+          `Classifying email ${i + 1} of ${total}…`
+        );
+
         // Skip already scanned messages
         const existing = await db.emailScan.findUnique({
           where: { userId_gmailMessageId: { userId, gmailMessageId: message.id } },
@@ -172,11 +210,21 @@ export function createEmailScanWorker(): Worker {
         processed++;
       }
 
+      await progress(job, 95, "Saving results…");
+
       // Update last scan time
       await db.gmailConnection.update({
         where: { userId },
         data: { lastScanAt: new Date() },
       });
+
+      await progress(
+        job,
+        100,
+        processed > 0
+          ? `Done! Found ${processed} job-related email${processed !== 1 ? "s" : ""}.`
+          : "Done! No new job-related emails."
+      );
 
       logger.info("Email scan complete", { userId, processed });
     },

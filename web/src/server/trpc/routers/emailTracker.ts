@@ -248,11 +248,10 @@ export const emailTrackerRouter = createTRPCRouter({
       });
     }
 
-    // Enqueue job directly into the BullMQ queue the worker listens to
     const { getEmailScanQueue } = await import("@/server/queue");
     const queue = getEmailScanQueue();
 
-    await queue.add(
+    const queueJob = await queue.add(
       "email-scan-manual",
       { userId },
       {
@@ -263,6 +262,42 @@ export const emailTrackerRouter = createTRPCRouter({
       }
     );
 
-    return { success: true };
+    return { success: true, jobId: queueJob.id ?? "" };
   }),
+
+  // ─── Poll sync job progress ──────────────────────────────────────────────────
+
+  getSyncStatus: protectedProcedure
+    .input(z.object({ jobId: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const { getEmailScanQueue } = await import("@/server/queue");
+      const queue = getEmailScanQueue();
+
+      const job = await queue.getJob(input.jobId);
+      if (!job) {
+        return { state: "unknown" as const, percent: 0, message: "Job not found." };
+      }
+
+      const state = await job.getState();
+      const raw = job.progress;
+
+      // Progress is stored as { percent, message } object
+      const percent =
+        typeof raw === "object" && raw !== null && "percent" in raw
+          ? Number((raw as { percent: number }).percent)
+          : typeof raw === "number"
+            ? raw
+            : 0;
+
+      const message =
+        typeof raw === "object" && raw !== null && "message" in raw
+          ? String((raw as { message: string }).message)
+          : state === "completed"
+            ? "Done!"
+            : state === "failed"
+              ? "Sync failed."
+              : "Working…";
+
+      return { state, percent, message };
+    }),
 });

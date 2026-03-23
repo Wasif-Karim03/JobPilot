@@ -67,34 +67,35 @@ export default function EmailTrackerPage() {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold">Email Job Tracker</h1>
-          <div className="flex items-center gap-4 mt-1 flex-wrap">
-            {stats?.email && (
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Mail className="h-3 w-3" />
-                {stats.email}
-              </span>
-            )}
-            {stats?.startDate && (
-              <button
-                onClick={() => setShowStartDateDialog(true)}
-                className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors group"
-                title="Click to change start date"
-              >
-                <CalendarDays className="h-3 w-3" />
-                Tracking since {format(new Date(stats.startDate), "MMM d, yyyy")}
-                <span className="text-primary opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">
-                  (change)
+      <div className="space-y-3">
+        {/* Title + meta row */}
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold">Email Job Tracker</h1>
+            <div className="flex items-center gap-4 mt-1 flex-wrap">
+              {stats?.email && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  {stats.email}
                 </span>
-              </button>
-            )}
+              )}
+              {stats?.startDate && (
+                <button
+                  onClick={() => setShowStartDateDialog(true)}
+                  className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors group"
+                  title="Click to change start date"
+                >
+                  <CalendarDays className="h-3 w-3" />
+                  Tracking since {format(new Date(stats.startDate), "MMM d, yyyy")}
+                  <span className="text-primary opacity-0 group-hover:opacity-100 transition-opacity text-[10px] ml-1">
+                    (change)
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          {/* Set / change start date */}
+          {/* Set start date button — only when not set */}
           {stats && !stats.startDate && (
             <button
               onClick={() => setShowStartDateDialog(true)}
@@ -104,12 +105,12 @@ export default function EmailTrackerPage() {
               Set Start Date
             </button>
           )}
-
-          {/* Sync button — only show if configured */}
-          {stats?.startDate && (
-            <SyncButton lastSyncAt={stats.lastSyncAt} onSynced={handleSynced} />
-          )}
         </div>
+
+        {/* Sync button / progress bar — full width when active */}
+        {stats?.startDate && (
+          <SyncButton lastSyncAt={stats.lastSyncAt} onSynced={handleSynced} />
+        )}
       </div>
 
       {/* ── No start date set yet ────────────────────────────────────────── */}
